@@ -52,6 +52,7 @@ export class SlottableElement extends FlexibleElement {
 
 	async computeState() {
 		// console.log("SlottableElement.computeState");
+		return {};
 	}
 
 	renderState() {
