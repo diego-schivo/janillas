@@ -56,19 +56,21 @@ const findNode = (node, indexes, attribute) => {
 	return indexes.reduce((n, x, i) => (attribute && i === indexes.length - 1 ? n.attributes : n.childNodes)[x], node);
 }
 
+const regex = /\$\{(.*?)\}/g;
+
 const compileNode = node => {
 	const ii = [];
 	const ff = [];
 	for (let x = node; x;) {
 		if (x instanceof Text) {
-			if (x.nodeValue.startsWith("${") && x.nodeValue.endsWith("}")) {
+			const nv = x.nodeValue;
+			if (nv.includes("${") && nv.includes("}")) {
 				const ii2 = [...ii];
-				const ex = x.nodeValue.substring(2, x.nodeValue.length - 1);
 				x.nodeValue = "";
 				ff.push(n => {
 					const n2 = findNode(n, ii2);
 					return y => {
-						const z = evaluate(ex, y) ?? "";
+						const z = nv.replace(regex, (_, ex) => evaluate(ex, y) ?? "");
 						if (z !== n2.nodeValue)
 							n2.nodeValue = z;
 					};
@@ -108,14 +110,14 @@ const compileNode = node => {
 		} else if (x instanceof Element && x.hasAttributes()) {
 			let i = 0;
 			for (const a of x.attributes) {
-				if (a.value.startsWith("${") && a.value.endsWith("}")) {
+				const v = a.value;
+				if (v.includes("${") && v.includes("}")) {
 					const ii2 = [...ii, i];
-					const ex = a.value.substring(2, a.value.length - 1);
 					a.value = "";
 					ff.push(n => {
 						const n2 = findNode(n, ii2, true);
 						return y => {
-							const z = evaluate(ex, y) ?? "";
+							const z = v.replace(regex, (_, ex) => evaluate(ex, y) ?? "");
 							if (z !== n2.value)
 								n2.value = z;
 						};
@@ -168,8 +170,11 @@ export class FlexibleElement extends UpdatableElement {
 			});
 			this.#domInterpolation = Object.fromEntries([
 				["", compileNode(df)],
-				...tt.map((y, i) => [y.id, compileNode(y.content)])
-			]);
+				...tt.map(y => [y.id, compileNode(y.content)])
+			].map(([k, v]) => [k, {
+				factory: v,
+				pool: []
+			}]));
 		});
 	}
 
@@ -178,7 +183,26 @@ export class FlexibleElement extends UpdatableElement {
 		await this.#initialize;
 	}
 
-	createInterpolateDom(key) {
-		return this.#domInterpolation[key ?? ""]();
+	interpolateDom(input = { $template: "" }) {
+		const a = (k, i) => {
+			const x = this.#domInterpolation[k];
+			for (let j = x.pool.length; j <= i; j++)
+				x.pool.push(x.factory());
+			return x.pool[i];
+		};
+		const b = {};
+		const c = x => {
+			if (x === null || typeof x !== "object")
+				return x;
+			if (Array.isArray(x))
+				return x.map(c);
+			if (!Object.hasOwn(x, "$template"))
+				return x;
+			const y = Object.fromEntries(Object.entries(x).filter((k, _) => k !== "$template").map(([k, v]) => [k, c(v)]));
+			var k = x.$template;
+			b[k] ??= 0;
+			return a(k, b[k]++)(y);
+		};
+		return c(input);
 	}
 }
