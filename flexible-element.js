@@ -115,11 +115,17 @@ const compileNode = node => {
 					const ii2 = [...ii, i];
 					a.value = "";
 					ff.push(n => {
-						const n2 = findNode(n, ii2, true);
+						const a2 = findNode(n, ii2, true);
+						const oe = a2.ownerElement;
 						return y => {
 							const z = v.replace(regex, (_, ex) => evaluate(ex, y) ?? "");
-							if (z !== n2.value)
-								n2.value = z;
+							if (z === a2.value)
+								return;
+							a2.value = z;
+							if (z === "false")
+								oe.removeAttributeNode(a2);
+							else if (!a2.ownerElement)
+								oe.setAttributeNode(a2);
 						};
 					});
 				}
