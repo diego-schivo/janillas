@@ -114,18 +114,25 @@ const compileNode = node => {
 				if (v.includes("${") && v.includes("}")) {
 					const ii2 = [...ii, i];
 					a.value = "";
+					const s = v.startsWith("${") && v.indexOf("}") === v.length - 1;
 					ff.push(n => {
 						const a2 = findNode(n, ii2, true);
 						const oe = a2.ownerElement;
 						return y => {
-							const z = v.replace(regex, (_, ex) => evaluate(ex, y) ?? "");
-							if (z === a2.value)
-								return;
-							a2.value = z;
-							if (z === "false")
-								oe.removeAttributeNode(a2);
+							let z;
+							const v2 = v.replace(regex, (_, ex) => {
+								z = evaluate(ex, y);
+								return z ?? "";
+							});
+							if (!s)
+								;
+							else if (z === undefined || z === null || z === false)
+								a2.ownerElement?.removeAttributeNode(a2);
 							else if (!a2.ownerElement)
 								oe.setAttributeNode(a2);
+							if (v2 === a2.value)
+								return;
+							a2.value = v2;
 						};
 					});
 				}
