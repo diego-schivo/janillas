@@ -42,7 +42,9 @@ export class SlottableElement extends FlexibleElement {
 		await super.updateDisplay();
 		this.renderState();
 		if (this.slot && this.state == null) {
+			this.dataset.computeState = "";
 			await this.computeState();
+			delete this.dataset.computeState;
 			if (this.state == null)
 				throw new Error("state == null");
 			if (this.slot)
