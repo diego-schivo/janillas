@@ -41,18 +41,18 @@ export class SlottableElement extends FlexibleElement {
 		// console.log("SlottableElement.updateDisplay");
 		await super.updateDisplay();
 		this.renderState();
-		if (this.slot && !this.state) {
-			const s = await this.computeState();
-			if (this.slot) {
-				this.state = s;
+		if (this.slot && this.state == null) {
+			await this.computeState();
+			if (this.state == null)
+				throw new Error("state == null");
+			if (this.slot)
 				this.requestUpdate();
-			}
 		}
 	}
 
 	async computeState() {
 		// console.log("SlottableElement.computeState");
-		return {};
+		this.state = {};
 	}
 
 	renderState() {

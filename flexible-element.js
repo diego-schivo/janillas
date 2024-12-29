@@ -83,26 +83,23 @@ const compileNode = node => {
 				x.nodeValue = "";
 				ff.push(n => {
 					const n2 = findNode(n, ii2);
-					const m = new Map();
 					return y => {
-						for (const e of m.entries())
-							if (e[0] instanceof DocumentFragment)
-								e[0].append(...e[1]);
-							else e[1].forEach(z => z.remove());
-						m.clear();
 						const z = evaluate(ex, y);
-						if (!z)
+						if (z == null)
 							return;
+						const zz = Array.isArray(z) ? z : [z];
+						zz.forEach(n3 => {
+							if (n3 instanceof DocumentFragment && !n3.firstChild && n3.originalChildNodes)
+								n3.append(...n3.originalChildNodes);
+						});
 						const ns = n2.nextSibling;
-						(Array.isArray(z) ? z : [z]).forEach(n3 => {
+						zz.forEach(n3 => {
 							if (typeof n3 === "string")
-								n3 = new Text(n3);
-							const ps = ns ? ns.previousSibling : n2;
+								// n3 = new Text(n3);
+								throw new Error(n3);
+							if (n3 instanceof DocumentFragment)
+								n3.originalChildNodes ??= [...n3.childNodes];
 							n2.parentNode.insertBefore(n3, ns);
-							const nn = [];
-							for (let ns2 = ps.nextSibling; ns2 !== ns; ns2 = ns2.nextSibling)
-								nn.push(ns2);
-							m.set(n3, nn);
 						});
 					};
 				});
@@ -197,25 +194,27 @@ export class FlexibleElement extends UpdatableElement {
 	}
 
 	interpolateDom(input = { $template: "" }) {
-		const a = (k, i) => {
-			const x = this.#domInterpolation[k];
-			for (let j = x.pool.length; j <= i; j++)
+		// console.log("FlexibleElement.interpolateDom");
+		const getInterpolate = (template, index) => {
+			const x = this.#domInterpolation[template];
+			for (let i = x.pool.length; i <= index; i++)
 				x.pool.push(x.factory());
-			return x.pool[i];
+			return x.pool[index];
 		};
-		const b = {};
-		const c = x => {
+		const indexes = {};
+		const interpolate = x => {
 			if (x === null || typeof x !== "object")
 				return x;
 			if (Array.isArray(x))
-				return x.map(c);
+				return x.map(interpolate);
 			if (!Object.hasOwn(x, "$template"))
 				return x;
-			const y = Object.fromEntries(Object.entries(x).filter((k, _) => k !== "$template").map(([k, v]) => [k, c(v)]));
+			const y = Object.fromEntries(Object.entries(x).filter(([k, _]) => k !== "$template").map(([k, v]) => [k, interpolate(v)]));
 			var k = x.$template;
-			b[k] ??= 0;
-			return a(k, b[k]++)(y);
+			indexes[k] ??= 0;
+			const i = getInterpolate(k, indexes[k]++);
+			return i(y);
 		};
-		return c(input);
+		return interpolate(input);
 	}
 }
