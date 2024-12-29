@@ -85,6 +85,9 @@ const compileNode = node => {
 					const n2 = findNode(n, ii2);
 					return y => {
 						const z = evaluate(ex, y);
+						for (let i = n2.insertedNodesLength; i > 0; i--)
+							n2.nextSibling.remove();
+						delete n2.insertedNodesLength;
 						if (z == null)
 							return;
 						const zz = Array.isArray(z) ? z : [z];
@@ -93,6 +96,7 @@ const compileNode = node => {
 								n3.append(...n3.originalChildNodes);
 						});
 						const ns = n2.nextSibling;
+						const l1 = n2.parentNode.childNodes.length;
 						zz.forEach(n3 => {
 							if (typeof n3 === "string")
 								// n3 = new Text(n3);
@@ -101,6 +105,8 @@ const compileNode = node => {
 								n3.originalChildNodes ??= [...n3.childNodes];
 							n2.parentNode.insertBefore(n3, ns);
 						});
+						const l2 = n2.parentNode.childNodes.length;
+						n2.insertedNodesLength = l2 - l1;
 					};
 				});
 			}
