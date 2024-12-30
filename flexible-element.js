@@ -147,23 +147,24 @@ const compileNode = node => {
 					return y => {
 						const z = evaluate(ex, y);
 						if (n2.insertedNodesLength) {
-							for (let i = n2.insertedNodesLength; i > 0; i--) {
-								if (!n2.nextSibling)
-									debugger;
+							for (let i = n2.insertedNodesLength; i > 0; i--)
 								n2.nextSibling.remove();
-							}
 							n2.insertedNodesLength = 0;
 						}
 						if (z == null)
 							return;
 						const zz = Array.isArray(z) ? z : [z];
 						zz.forEach(n3 => {
-							if (n3 instanceof DocumentFragment && !n3.firstChild && n3.originalChildNodes)
+							if (n3 instanceof DocumentFragment && !n3.firstChild && n3.originalChildNodes?.length) {
+								for (let ps = n3.originalChildNodes[0].previousSibling; ps; ps = ps.previousSibling)
+									if (ps instanceof Comment) {
+										ps.insertedNodesLength -= n3.originalChildNodes.length;
+										break;
+									}
 								n3.append(...n3.originalChildNodes);
+							}
 						});
 						const ns = n2.nextSibling;
-						if (!n2.parentNode)
-							debugger;
 						const l1 = n2.parentNode.childNodes.length;
 						zz.forEach(n3 => {
 							if (typeof n3 === "string")
@@ -175,8 +176,6 @@ const compileNode = node => {
 						});
 						const l2 = n2.parentNode.childNodes.length;
 						n2.insertedNodesLength = l2 - l1;
-						if (n2.previousSibling?.textContent === "Foo Bar")
-							debugger;
 					};
 				});
 			}
