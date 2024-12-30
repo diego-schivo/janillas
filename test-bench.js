@@ -96,23 +96,20 @@ export default class TestBench extends FlexibleElement {
 	async updateDisplay() {
 		// console.log("TestBench.updateDisplay");
 		this.querySelector("iframe")?.removeEventListener("load", this.handleLoad);
-		await super.updateDisplay();
 		if (this.keys?.length) {
 			await fetch("/test/start", { method: "POST" });
 			localStorage.removeItem("jwtToken");
 			this.state[this.keys[0]].class = "ongoing";
 		}
-		this.interpolate ??= this.createInterpolateDom();
-		this.appendChild(this.interpolate({
-			testItems: (() => {
-				if (this.interpolateTestItems?.length !== this.state.length)
-					this.interpolateTestItems = this.state.map(() => this.createInterpolateDom("test-item"));
-				return this.state.map((x, i) => this.interpolateTestItems[i](x));
-			})(),
-			testFrame: this.keys?.length ? (() => {
-				this.interpolateTestFrame ??= this.createInterpolateDom("test-frame");
-				return this.interpolateTestFrame();
-			})() : null
+		this.appendChild(this.interpolateDom({
+			$template: "",
+			testItems: this.state.map(x => ({
+				$template: "test-item",
+				...x
+			})),
+			testFrame: this.keys?.length ? {
+				$template: "test-frame"
+			} : null
 		}));
 		this.querySelector("iframe")?.addEventListener("load", this.handleLoad);
 	}
