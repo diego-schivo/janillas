@@ -24,6 +24,67 @@
  */
 import { UpdatableElement } from "./updatable-element.js";
 
+export class FlexibleElement extends UpdatableElement {
+
+	#initPromise;
+
+	#templates;
+
+	constructor() {
+		super();
+		this.#initPromise = getDocumentFragment(this.constructor.templateName).then(x => {
+			const df = x.cloneNode(true);
+			const tt = [...df.querySelectorAll("template")].map(y => {
+				y.remove();
+				return y;
+			});
+			this.#templates = Object.fromEntries([
+				["", compileNode(df)],
+				...tt.map(y => [y.id, compileNode(y.content)])
+			].map(([k, v]) => [k, {
+				factory: v,
+				functions: []
+			}]));
+		});
+	}
+
+	async updateTimeout() {
+		// console.log("FlexibleElement.updateTimeout");
+		await this.#initPromise;
+		await super.updateTimeout();
+	}
+
+	async updateDisplay() {
+		// console.log("FlexibleElement.updateDisplay");
+		this.appendChild(this.interpolateDom());
+	}
+
+	interpolateDom(input = { $template: "" }) {
+		// console.log("FlexibleElement.interpolateDom");
+		const getInterpolate = (template, index) => {
+			const x = this.#templates[template];
+			for (let i = x.functions.length; i <= index; i++)
+				x.functions.push(x.factory());
+			return x.functions[index];
+		};
+		const indexes = {};
+		const interpolate = x => {
+			if (x === null || typeof x !== "object")
+				return x;
+			if (Array.isArray(x))
+				return x.map(interpolate);
+			if (!Object.hasOwn(x, "$template"))
+				return x;
+			const y = Object.fromEntries(Object.entries(x).filter(([k, _]) => k !== "$template").map(([k, v]) => [k, interpolate(v)]));
+			var k = x.$template;
+			indexes[k] ??= 0;
+			const i = getInterpolate(k, indexes[k]++);
+			return i(y);
+		};
+		return interpolate(input);
+	}
+}
+
 const documentFragments = {};
 
 const getDocumentFragment = async name => {
@@ -56,7 +117,7 @@ const findNode = (node, indexes, attribute) => {
 	return indexes.reduce((n, x, i) => (attribute && i === indexes.length - 1 ? n.attributes : n.childNodes)[x], node);
 }
 
-const regex = /\$\{(.*?)\}/g;
+const expressionRegex = /\$\{(.*?)\}/g;
 
 const compileNode = node => {
 	const ii = [];
@@ -70,7 +131,7 @@ const compileNode = node => {
 				ff.push(n => {
 					const n2 = findNode(n, ii2);
 					return y => {
-						const z = nv.replace(regex, (_, ex) => evaluate(ex, y) ?? "");
+						const z = nv.replace(expressionRegex, (_, ex) => evaluate(ex, y) ?? "");
 						if (z !== n2.nodeValue)
 							n2.nodeValue = z;
 					};
@@ -85,9 +146,14 @@ const compileNode = node => {
 					const n2 = findNode(n, ii2);
 					return y => {
 						const z = evaluate(ex, y);
-						for (let i = n2.insertedNodesLength; i > 0; i--)
-							n2.nextSibling.remove();
-						delete n2.insertedNodesLength;
+						if (n2.insertedNodesLength) {
+							for (let i = n2.insertedNodesLength; i > 0; i--) {
+								if (!n2.nextSibling)
+									debugger;
+								n2.nextSibling.remove();
+							}
+							n2.insertedNodesLength = 0;
+						}
 						if (z == null)
 							return;
 						const zz = Array.isArray(z) ? z : [z];
@@ -96,6 +162,8 @@ const compileNode = node => {
 								n3.append(...n3.originalChildNodes);
 						});
 						const ns = n2.nextSibling;
+						if (!n2.parentNode)
+							debugger;
 						const l1 = n2.parentNode.childNodes.length;
 						zz.forEach(n3 => {
 							if (typeof n3 === "string")
@@ -107,6 +175,8 @@ const compileNode = node => {
 						});
 						const l2 = n2.parentNode.childNodes.length;
 						n2.insertedNodesLength = l2 - l1;
+						if (n2.previousSibling?.textContent === "Foo Bar")
+							debugger;
 					};
 				});
 			}
@@ -123,7 +193,7 @@ const compileNode = node => {
 						const oe = a2.ownerElement;
 						return y => {
 							let z;
-							const v2 = v.replace(regex, (_, ex) => {
+							const v2 = v.replace(expressionRegex, (_, ex) => {
 								z = evaluate(ex, y);
 								return z ?? "";
 							});
@@ -169,58 +239,3 @@ const compileNode = node => {
 		};
 	};
 };
-
-export class FlexibleElement extends UpdatableElement {
-
-	#initialize;
-
-	#domInterpolation;
-
-	constructor() {
-		super();
-		this.#initialize = getDocumentFragment(this.constructor.templateName).then(x => {
-			const df = x.cloneNode(true);
-			const tt = [...df.querySelectorAll("template")].map(y => {
-				y.remove();
-				return y;
-			});
-			this.#domInterpolation = Object.fromEntries([
-				["", compileNode(df)],
-				...tt.map(y => [y.id, compileNode(y.content)])
-			].map(([k, v]) => [k, {
-				factory: v,
-				pool: []
-			}]));
-		});
-	}
-
-	async updateDisplay() {
-		// console.log("FlexibleElement.updateDisplay");
-		await this.#initialize;
-	}
-
-	interpolateDom(input = { $template: "" }) {
-		// console.log("FlexibleElement.interpolateDom");
-		const getInterpolate = (template, index) => {
-			const x = this.#domInterpolation[template];
-			for (let i = x.pool.length; i <= index; i++)
-				x.pool.push(x.factory());
-			return x.pool[index];
-		};
-		const indexes = {};
-		const interpolate = x => {
-			if (x === null || typeof x !== "object")
-				return x;
-			if (Array.isArray(x))
-				return x.map(interpolate);
-			if (!Object.hasOwn(x, "$template"))
-				return x;
-			const y = Object.fromEntries(Object.entries(x).filter(([k, _]) => k !== "$template").map(([k, v]) => [k, interpolate(v)]));
-			var k = x.$template;
-			indexes[k] ??= 0;
-			const i = getInterpolate(k, indexes[k]++);
-			return i(y);
-		};
-		return interpolate(input);
-	}
-}

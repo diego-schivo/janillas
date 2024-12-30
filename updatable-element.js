@@ -24,7 +24,7 @@
  */
 export class UpdatableElement extends HTMLElement {
 
-	#state = {};
+	#update = {};
 
 	constructor() {
 		super();
@@ -37,31 +37,37 @@ export class UpdatableElement extends HTMLElement {
 
 	attributeChangedCallback(name, oldValue, newValue) {
 		// console.log(`UpdatableElement(${this.constructor.name}).attributeChangedCallback`, "name", name, "oldValue", oldValue, "newValue", newValue);
-		if (newValue !== oldValue && this.isConnected)
+		if (this.isConnected && newValue !== oldValue)
 			this.requestUpdate();
 	}
 
 	requestUpdate() {
 		// console.log(`UpdatableElement(${this.constructor.name}).requestUpdate`);
-		if (this.#state.ongoing) {
-			this.#state.repeat = true;
+		if (this.#update.ongoing) {
+			this.#update.repeat = true;
 			return;
 		}
 
-		if (typeof this.#state.timeoutID === "number")
-			clearTimeout(this.#state.timeoutID);
+		if (typeof this.#update.timeoutID === "number")
+			clearTimeout(this.#update.timeoutID);
 
-		this.#state.timeoutID = setTimeout(async () => {
-			this.#state.timeoutID = undefined;
-			this.#state.ongoing = true;
+		this.#update.timeoutID = setTimeout(async () => await this.updateTimeout(), 1);
+	}
+
+	async updateTimeout() {
+		// console.log(`UpdatableElement(${this.constructor.name}).updateTimeout`);
+		this.#update.timeoutID = undefined;
+		this.#update.ongoing = true;
+		try {
 			await this.updateDisplay();
-			this.#state.ongoing = false;
-			// console.log(`UpdatableElement(${this.constructor.name}).requestUpdate`, "this.#state.repeat", this.#state.repeat);
-			if (this.#state.repeat) {
-				this.#state.repeat = false;
-				this.requestUpdate();
-			}
-		}, 1);
+		} finally {
+			this.#update.ongoing = false;
+		}
+		// console.log(`UpdatableElement(${this.constructor.name}).updateTimeout`, "this.#update.repeat", this.#update.repeat);
+		if (this.#update.repeat) {
+			this.#update.repeat = false;
+			this.requestUpdate();
+		}
 	}
 
 	async updateDisplay() {
