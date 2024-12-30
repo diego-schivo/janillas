@@ -26,19 +26,15 @@ import { UpdatableElement } from "./updatable-element.js";
 
 export class FlexibleElement extends UpdatableElement {
 
-	#initPromise;
-
-	#templates;
-
 	constructor() {
 		super();
-		this.#initPromise = getDocumentFragment(this.constructor.templateName).then(x => {
+		this.janillas.initialize = getDocumentFragment(this.constructor.templateName).then(x => {
 			const df = x.cloneNode(true);
 			const tt = [...df.querySelectorAll("template")].map(y => {
 				y.remove();
 				return y;
 			});
-			this.#templates = Object.fromEntries([
+			this.janillas.templates = Object.fromEntries([
 				["", compileNode(df)],
 				...tt.map(y => [y.id, compileNode(y.content)])
 			].map(([k, v]) => [k, {
@@ -50,7 +46,7 @@ export class FlexibleElement extends UpdatableElement {
 
 	async updateTimeout() {
 		// console.log("FlexibleElement.updateTimeout");
-		await this.#initPromise;
+		await this.janillas.initialize;
 		await super.updateTimeout();
 	}
 
@@ -62,7 +58,7 @@ export class FlexibleElement extends UpdatableElement {
 	interpolateDom(input = { $template: "" }) {
 		// console.log("FlexibleElement.interpolateDom");
 		const getInterpolate = (template, index) => {
-			const x = this.#templates[template];
+			const x = this.janillas.templates[template];
 			for (let i = x.functions.length; i <= index; i++)
 				x.functions.push(x.factory());
 			return x.functions[index];
@@ -146,22 +142,24 @@ const compileNode = node => {
 					const n2 = findNode(n, ii2);
 					return y => {
 						const z = evaluate(ex, y);
-						if (n2.insertedNodesLength) {
-							for (let i = n2.insertedNodesLength; i > 0; i--)
+						const j2 = (n2.janillas ??= {});
+						if (j2.insertedNodesLength) {
+							for (let i = j2.insertedNodesLength; i > 0; i--)
 								n2.nextSibling.remove();
-							n2.insertedNodesLength = 0;
+							j2.insertedNodesLength = 0;
 						}
 						if (z == null)
 							return;
 						const zz = Array.isArray(z) ? z : [z];
 						zz.forEach(n3 => {
-							if (n3 instanceof DocumentFragment && !n3.firstChild && n3.originalChildNodes?.length) {
-								for (let ps = n3.originalChildNodes[0].previousSibling; ps; ps = ps.previousSibling)
+							const j3 = (n3.janillas ??= {});
+							if (n3 instanceof DocumentFragment && !n3.firstChild && j3.originalChildNodes?.length) {
+								for (let ps = j3.originalChildNodes[0].previousSibling; ps; ps = ps.previousSibling)
 									if (ps instanceof Comment) {
-										ps.insertedNodesLength -= n3.originalChildNodes.length;
+										ps.janillas.insertedNodesLength -= j3.originalChildNodes.length;
 										break;
 									}
-								n3.append(...n3.originalChildNodes);
+								n3.append(...j3.originalChildNodes);
 							}
 						});
 						const ns = n2.nextSibling;
@@ -170,12 +168,14 @@ const compileNode = node => {
 							if (typeof n3 === "string")
 								// n3 = new Text(n3);
 								throw new Error(n3);
-							if (n3 instanceof DocumentFragment)
-								n3.originalChildNodes ??= [...n3.childNodes];
+							if (n3 instanceof DocumentFragment) {
+								const j3 = (n3.janillas ??= {});
+								j3.originalChildNodes ??= [...n3.childNodes];
+							}
 							n2.parentNode.insertBefore(n3, ns);
 						});
 						const l2 = n2.parentNode.childNodes.length;
-						n2.insertedNodesLength = l2 - l1;
+						j2.insertedNodesLength = l2 - l1;
 					};
 				});
 			}

@@ -24,7 +24,9 @@
  */
 export class UpdatableElement extends HTMLElement {
 
-	#update = {};
+	janillas = {
+		update: {}
+	};
 
 	constructor() {
 		super();
@@ -43,29 +45,31 @@ export class UpdatableElement extends HTMLElement {
 
 	requestUpdate() {
 		// console.log(`UpdatableElement(${this.constructor.name}).requestUpdate`);
-		if (this.#update.ongoing) {
-			this.#update.repeat = true;
+		const u = this.janillas.update;
+		if (u.ongoing) {
+			u.repeat = true;
 			return;
 		}
 
-		if (typeof this.#update.timeoutID === "number")
-			clearTimeout(this.#update.timeoutID);
+		if (typeof u.timeoutID === "number")
+			clearTimeout(u.timeoutID);
 
-		this.#update.timeoutID = setTimeout(async () => await this.updateTimeout(), 1);
+		u.timeoutID = setTimeout(async () => await this.updateTimeout(), 1);
 	}
 
 	async updateTimeout() {
 		// console.log(`UpdatableElement(${this.constructor.name}).updateTimeout`);
-		this.#update.timeoutID = undefined;
-		this.#update.ongoing = true;
+		const u = this.janillas.update;
+		u.timeoutID = undefined;
+		u.ongoing = true;
 		try {
 			await this.updateDisplay();
 		} finally {
-			this.#update.ongoing = false;
+			u.ongoing = false;
 		}
-		// console.log(`UpdatableElement(${this.constructor.name}).updateTimeout`, "this.#update.repeat", this.#update.repeat);
-		if (this.#update.repeat) {
-			this.#update.repeat = false;
+		// console.log(`UpdatableElement(${this.constructor.name}).updateTimeout`, "u.repeat", u.repeat);
+		if (u.repeat) {
+			u.repeat = false;
 			this.requestUpdate();
 		}
 	}
