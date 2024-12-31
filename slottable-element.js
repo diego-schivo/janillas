@@ -30,22 +30,33 @@ export class SlottableElement extends FlexibleElement {
 		super();
 	}
 
+	get state() {
+		return this.janillas.state;
+	}
+
+	set state(x) {
+		if (x !== undefined)
+			this.janillas.state = x;
+		else
+			delete this.janillas.state;
+	}
+
 	attributeChangedCallback(name, oldValue, newValue) {
 		// console.log(`SlottableElement.attributeChangedCallback`, "name", name, "oldValue", oldValue, "newValue", newValue);
 		super.attributeChangedCallback(name, oldValue, newValue);
 		if (!this.slot)
-			this.janillas.state = undefined;
+			this.state = undefined;
 	}
 
 	async updateDisplay() {
 		// console.log("SlottableElement.updateDisplay");
 		this.renderState();
-		if (this.slot && !this.janillas.state) {
+		if (this.slot && !this.state) {
 			this.dataset.computeState = "";
 			await this.computeState();
 			delete this.dataset.computeState;
-			if (!this.janillas.state)
-				throw new Error("state not computed");
+			if (!this.state)
+				throw new Error(`state not computed (${this.constructor.name})`);
 			if (this.slot)
 				this.requestUpdate();
 		}
@@ -53,14 +64,14 @@ export class SlottableElement extends FlexibleElement {
 
 	async computeState() {
 		// console.log("SlottableElement.computeState");
-		this.janillas.state = {};
+		this.state = {};
 	}
 
 	renderState() {
 		// console.log("SlottableElement.renderState");
 		this.appendChild(this.interpolateDom({
 			$template: "",
-			...this.janillas.state
+			...this.state
 		}));
 	}
 }
