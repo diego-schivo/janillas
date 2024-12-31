@@ -106,11 +106,9 @@ export default class TestBench extends FlexibleElement {
 			testItems: this.state.map(x => ({
 				$template: "test-item",
 				...x
-			})),
-			testFrame: this.keys?.length ? {
-				$template: "test-frame"
-			} : null
+			}))
 		}));
+		this.querySelector(".test-runner").innerHTML = this.keys?.length ? '<iframe src="/"></iframe>' : "";
 		this.querySelector("iframe")?.addEventListener("load", this.handleLoad);
 	}
 }
