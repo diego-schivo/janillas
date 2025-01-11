@@ -196,15 +196,16 @@ const compileNode = node => {
 								z = evaluate(ex, y);
 								return z ?? "";
 							});
+							// console.log("v", v, "v2", v2, "z", z, "s", s);
 							if (!s)
 								;
-							else if (z === undefined || z === null || z === false)
+							else if (z == null || z === false)
 								a2.ownerElement?.removeAttributeNode(a2);
 							else if (!a2.ownerElement)
 								oe.setAttributeNode(a2);
 							if (v2 === a2.value)
 								return;
-							a2.value = v2;
+							a2.value = z === true ? "" : v2;
 						};
 					});
 				}

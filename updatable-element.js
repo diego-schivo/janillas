@@ -61,6 +61,8 @@ export class UpdatableElement extends HTMLElement {
 		// console.log(`UpdatableElement(${this.constructor.name}).updateTimeout`);
 		const u = this.janillas.update;
 		u.timeoutID = undefined;
+		if (!this.isConnected)
+			return;
 		u.ongoing = true;
 		try {
 			await this.updateDisplay();
