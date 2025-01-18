@@ -42,14 +42,14 @@ export class SlottableElement extends FlexibleElement {
 	}
 
 	attributeChangedCallback(name, oldValue, newValue) {
-		// console.log(`SlottableElement.attributeChangedCallback`, "name", name, "oldValue", oldValue, "newValue", newValue);
+		// console.log(`SlottableElement(${this.constructor.name}).attributeChangedCallback`, "name", name, "oldValue", oldValue, "newValue", newValue);
 		super.attributeChangedCallback(name, oldValue, newValue);
 		if (!this.slot)
 			this.state = undefined;
 	}
 
 	async updateDisplay() {
-		// console.log("SlottableElement.updateDisplay");
+		// console.log("SlottableElement(${this.constructor.name}).updateDisplay");
 		this.renderState();
 		if (this.slot && !this.state) {
 			this.dataset.computeState = "";
@@ -63,12 +63,12 @@ export class SlottableElement extends FlexibleElement {
 	}
 
 	async computeState() {
-		// console.log("SlottableElement.computeState");
+		// console.log("SlottableElement(${this.constructor.name}).computeState");
 		this.state = {};
 	}
 
 	renderState() {
-		// console.log("SlottableElement.renderState");
+		// console.log("SlottableElement(${this.constructor.name}).renderState");
 		this.appendChild(this.interpolateDom({
 			$template: "",
 			...this.state

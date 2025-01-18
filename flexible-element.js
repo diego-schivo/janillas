@@ -45,20 +45,22 @@ export class FlexibleElement extends UpdatableElement {
 	}
 
 	async updateTimeout() {
-		// console.log("FlexibleElement.updateTimeout");
+		// console.log("FlexibleElement(${this.constructor.name}).updateTimeout");
 		await this.janillas.initialize;
 		await super.updateTimeout();
 	}
 
 	async updateDisplay() {
-		// console.log("FlexibleElement.updateDisplay");
+		// console.log("FlexibleElement(${this.constructor.name}).updateDisplay");
 		this.appendChild(this.interpolateDom());
 	}
 
 	interpolateDom(input = { $template: "" }) {
-		// console.log("FlexibleElement.interpolateDom");
+		// console.log("FlexibleElement(${this.constructor.name}).interpolateDom");
 		const getInterpolate = (template, index) => {
 			const x = this.janillas.templates[template];
+			if (!x)
+				throw new Error(`Template "${template}" not found (${this.constructor.name})`);
 			for (let i = x.functions.length; i <= index; i++)
 				x.functions.push(x.factory());
 			return x.functions[index];
@@ -134,48 +136,45 @@ const compileNode = node => {
 				});
 			}
 		} else if (x instanceof Comment) {
-			if (x.nodeValue.startsWith("${") && x.nodeValue.endsWith("}")) {
+			if (x.nodeValue.startsWith("${") && x.nodeValue.indexOf("}") === x.nodeValue.length - 1) {
 				const ii2 = [...ii];
 				const ex = x.nodeValue.substring(2, x.nodeValue.length - 1);
 				x.nodeValue = "";
 				ff.push(n => {
 					const n2 = findNode(n, ii2);
 					return y => {
-						const z = evaluate(ex, y);
 						const j2 = (n2.janillas ??= {});
-						if (j2.insertedNodesLength) {
-							for (let i = j2.insertedNodesLength; i > 0; i--)
-								n2.nextSibling.remove();
-							j2.insertedNodesLength = 0;
+						let rn = n2.nextSibling;
+						const nn1 = [];
+						for (let i = j2.insertedNodesLength; i > 0; i--) {
+							nn1.push(rn);
+							rn = rn.nextSibling;
 						}
-						if (z == null)
-							return;
-						const zz = Array.isArray(z) ? z : [z];
-						zz.forEach(n3 => {
-							const j3 = (n3.janillas ??= {});
-							if (n3 instanceof DocumentFragment && !n3.firstChild && j3.originalChildNodes?.length) {
-								for (let ps = j3.originalChildNodes[0].previousSibling; ps; ps = ps.previousSibling)
-									if (ps instanceof Comment) {
-										ps.janillas.insertedNodesLength -= j3.originalChildNodes.length;
-										break;
-									}
-								n3.append(...j3.originalChildNodes);
-							}
-						});
-						const ns = n2.nextSibling;
-						const l1 = n2.parentNode.childNodes.length;
-						zz.forEach(n3 => {
-							if (typeof n3 === "string")
-								// n3 = new Text(n3);
-								throw new Error(n3);
+						const z = evaluate(ex, y);
+						const zz = Array.isArray(z) ? z : z != null ? [z] : [];
+						const nn2 = zz.flatMap(n3 => {
 							if (n3 instanceof DocumentFragment) {
 								const j3 = (n3.janillas ??= {});
 								j3.originalChildNodes ??= [...n3.childNodes];
+								if (!n3.firstChild && j3.originalChildNodes.length)
+									for (let ps = j3.originalChildNodes[0].previousSibling; ps; ps = ps.previousSibling)
+										if (ps instanceof Comment) {
+											ps.janillas.insertedNodesLength -= j3.originalChildNodes.length;
+											break;
+										}
+								return j3.originalChildNodes;
 							}
-							n2.parentNode.insertBefore(n3, ns);
+							return n3;
 						});
-						const l2 = n2.parentNode.childNodes.length;
-						j2.insertedNodesLength = l2 - l1;
+						for (const n3 of nn1)
+							if (!nn2.includes(n3))
+								n2.parentNode.removeChild(n3);
+						for (const n3 of nn2.reverse()) {
+							if (rn.previousSibling !== n3)
+								n2.parentNode.insertBefore(n3, rn);
+							rn = n3;
+						}
+						j2.insertedNodesLength = nn2.length;
 					};
 				});
 			}
