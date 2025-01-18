@@ -205,6 +205,10 @@ const compileNode = node => {
 							if (v2 === a2.value)
 								return;
 							a2.value = z === true ? "" : v2;
+							if (a2.name === "value"
+								&& (oe instanceof HTMLInputElement || oe instanceof HTMLSelectElement || oe instanceof HTMLTextAreaElement)
+								&& a2.value !== oe.value)
+								oe.value = a2.value;
 						};
 					});
 				}
