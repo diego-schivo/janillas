@@ -59,7 +59,6 @@ export const matchNode = (xpath, context, not) => {
 				}
 				reject(`Timeout (xpath=${xpath})`);
 			}, 500);
-		} //else if (not)
-		//	reject(`Not found (xpath=${xpath})`);
+		}
 	});
 };

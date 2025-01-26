@@ -22,10 +22,10 @@
  * Please contact Diego Schivo, diego.schivo@janilla.com or visit
  * www.janilla.com if you need additional information or have any questions.
  */
-import { FlexibleElement } from "./flexible-element.js";
+import { UpdatableHTMLElement } from "./updatable-html-element.js";
 import tests from "./tests.js";
 
-export default class TestBench extends FlexibleElement {
+export default class TestBench extends UpdatableHTMLElement {
 
 	static get observedAttributes() {
 		return ["data-values"];
@@ -35,11 +35,6 @@ export default class TestBench extends FlexibleElement {
 		return "test-bench";
 	}
 
-	state = Object.entries(tests).map((x, i) => ({
-		value: i,
-		text: x[0]
-	}));
-
 	constructor() {
 		super();
 	}
@@ -47,12 +42,17 @@ export default class TestBench extends FlexibleElement {
 	connectedCallback() {
 		// console.log("TestBench.connectedCallback");
 		super.connectedCallback();
+		this.state.tests = Object.entries(tests).map((x, i) => ({
+			value: i,
+			text: x[0]
+		}));
 		this.addEventListener("change", this.handleChange);
 		this.addEventListener("submit", this.handleSubmit);
 	}
 
 	disconnectedCallback() {
 		// console.log("TestBench.disconnectedCallback");
+		super.disconnectedCallback();
 		this.removeEventListener("change", this.handleChange);
 		this.removeEventListener("submit", this.handleSubmit);
 	}
@@ -67,7 +67,7 @@ export default class TestBench extends FlexibleElement {
 	handleLoad = event => {
 		// console.log("TestBench.handleLoad", event);
 		const k = this.keys.shift();
-		const s = this.state[k];
+		const s = this.state.tests[k];
 		tests[s.text](event.target.contentDocument).then(async () => {
 			await new Promise(x => setTimeout(x, 200));
 			s.class = "succeeded";
@@ -89,7 +89,7 @@ export default class TestBench extends FlexibleElement {
 		event.preventDefault();
 		this.keys = new FormData(event.target).getAll("test");
 		this.querySelectorAll("input, button").forEach(x => x.disabled = true);
-		this.state.forEach(x => x.class = null);
+		this.state.tests.forEach(x => x.class = null);
 		this.requestUpdate();
 	}
 
@@ -99,11 +99,11 @@ export default class TestBench extends FlexibleElement {
 		if (this.keys?.length) {
 			await fetch("/test/start", { method: "POST" });
 			localStorage.removeItem("jwtToken");
-			this.state[this.keys[0]].class = "ongoing";
+			this.state.tests[this.keys[0]].class = "ongoing";
 		}
 		this.appendChild(this.interpolateDom({
 			$template: "",
-			testItems: this.state.map(x => ({
+			testItems: this.state.tests.map(x => ({
 				$template: "test-item",
 				...x
 			}))
