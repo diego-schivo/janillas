@@ -112,10 +112,13 @@ export class UpdatableHTMLElement extends HTMLElement {
 	async updateDisplay() {
 		// console.log(`UpdatableHTMLElement(${this.constructor.name}).updateDisplay`);
 		if (this.janillas.templates)
-			this.appendChild(this.interpolateDom());
+			this.appendChild(this.interpolateDom({
+				$template: "",
+				...this.state
+			}));
 	}
 
-	interpolateDom(input = { $template: "" }) {
+	interpolateDom(input) {
 		// console.log("FlexibleElement(${this.constructor.name}).interpolateDom");
 		const getInterpolate = (template, index) => {
 			const x = this.janillas.templates[template];
@@ -186,11 +189,16 @@ const compileNode = node => {
 			if (nv.includes("${") && nv.includes("}")) {
 				const ii2 = [...ii];
 				x.nodeValue = "";
+				const ta = x.parentElement instanceof HTMLTextAreaElement;
 				ff.push(n => {
 					const n2 = findNode(n, ii2);
 					return y => {
 						const z = nv.replace(expressionRegex, (_, ex) => evaluate(ex, y) ?? "");
-						if (z !== n2.nodeValue)
+						if (ta) {
+							const pe = n2.parentElement;
+							if (z !== pe.value)
+								pe.value = z;
+						} else if (z !== n2.nodeValue)
 							n2.nodeValue = z;
 					};
 				});
@@ -295,6 +303,8 @@ const compileNode = node => {
 	}
 	return () => {
 		const n = node.cloneNode(true);
+		if (n instanceof DocumentFragment)
+			(n.janillas = {}).originalChildNodes = [...n.childNodes];
 		const ff2 = ff.map(x => x(n));
 		return x => {
 			ff2.forEach(y => y(x));
