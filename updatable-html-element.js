@@ -243,7 +243,7 @@ const compileNode = node => {
 							if (!nn2.includes(n3))
 								n2.parentNode.removeChild(n3);
 						for (const n3 of nn2.reverse()) {
-							if (rn.previousSibling !== n3)
+							if (rn?.previousSibling !== n3)
 								n2.parentNode.insertBefore(n3, rn);
 							rn = n3;
 						}
