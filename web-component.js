@@ -22,96 +22,90 @@
  * Please contact Diego Schivo, diego.schivo@janilla.com or visit
  * www.janilla.com if you need additional information or have any questions.
  */
-export class UpdatableHTMLElement extends HTMLElement {
+export class WebComponent extends HTMLElement {
 
-	janillas = {
-		update: {}
+	#initializeTemplating;
+
+	#templating;
+
+	#displayUpdate = {
+		ongoing: false,
+		repeat: false,
+		timeoutID: undefined
 	};
 
 	constructor() {
 		super();
-		const tn = this.constructor.templateName;
-		if (tn)
-			this.janillas.initialize = getDocumentFragment(tn).then(x => {
-				const df = x.cloneNode(true);
-				const tt = [...df.querySelectorAll("template")].map(y => {
-					y.remove();
-					return y;
-				});
-				this.janillas.templates = Object.fromEntries([
-					["", compileNode(df)],
-					...tt.map(y => [y.id, compileNode(y.content)])
-				].map(([k, v]) => [k, {
-					factory: v,
-					functions: []
-				}]));
+		if (!this.constructor.templateName)
+			return;
+		this.#initializeTemplating = getDocumentFragment(this.constructor.templateName).then(x => {
+			const documentFragment = x.cloneNode(true);
+			const templates = [...documentFragment.querySelectorAll("template")].map(y => {
+				y.remove();
+				return y;
 			});
-	}
-
-	get state() {
-		return this.janillas.state;
-	}
-
-	set state(x) {
-		this.janillas.state = x;
+			this.#templating = Object.fromEntries([
+				["", compileNode(documentFragment)],
+				...templates.map(y => [y.id, compileNode(y.content)])
+			].map(([k, v]) => [k, {
+				factory: v,
+				functions: []
+			}]));
+		});
 	}
 
 	connectedCallback() {
-		// console.log(`UpdatableHTMLElement(${this.constructor.name}).connectedCallback`);
+		// console.log(`WebComponent(${this.constructor.name}).connectedCallback`);
 		this.state = {};
-		this.requestUpdate();
+		this.requestDisplay();
 	}
 
 	disconnectedCallback() {
-		// console.log(`UpdatableHTMLElement(${this.constructor.name}).disconnectedCallback`);
-		this.state = null;
+		// console.log(`WebComponent(${this.constructor.name}).disconnectedCallback`);
+		delete this.state;
 	}
 
 	attributeChangedCallback(name, oldValue, newValue) {
-		// console.log(`UpdatableHTMLElement(${this.constructor.name}).attributeChangedCallback`, "name", name, "oldValue", oldValue, "newValue", newValue);
+		// console.log(`WebComponent(${this.constructor.name}).attributeChangedCallback`, "name", name, "oldValue", oldValue, "newValue", newValue);
 		if (this.isConnected && newValue !== oldValue)
-			this.requestUpdate();
+			this.requestDisplay();
 	}
 
-	requestUpdate() {
-		// console.log(`UpdatableHTMLElement(${this.constructor.name}).requestUpdate`);
-		const u = this.janillas.update;
-		if (u.ongoing) {
-			u.repeat = true;
+	requestDisplay(delay = 1) {
+		// console.log(`WebComponent(${this.constructor.name}).requestDisplay`);
+		if (this.#displayUpdate.ongoing) {
+			this.#displayUpdate.repeat = true;
 			return;
 		}
 
-		if (typeof u.timeoutID === "number")
-			clearTimeout(u.timeoutID);
+		if (typeof this.#displayUpdate.timeoutID === "number")
+			clearTimeout(this.#displayUpdate.timeoutID);
 
-		u.timeoutID = setTimeout(async () => await this.updateTimeout(), 1);
+		this.#displayUpdate.timeoutID = setTimeout(async () => await this.displayTimeout(), delay);
 	}
 
-	async updateTimeout() {
-		// console.log(`UpdatableHTMLElement(${this.constructor.name}).updateTimeout`);
-		const i = this.janillas.initialize;
-		if (i)
-			await i;
-		const u = this.janillas.update;
-		u.timeoutID = undefined;
+	async displayTimeout() {
+		// console.log(`WebComponent(${this.constructor.name}).displayTimeout`);
+		if (this.#initializeTemplating)
+			await this.#initializeTemplating;
+		this.#displayUpdate.timeoutID = undefined;
 		if (!this.isConnected)
 			return;
-		u.ongoing = true;
+		this.#displayUpdate.ongoing = true;
 		try {
 			await this.updateDisplay();
 		} finally {
-			u.ongoing = false;
+			this.#displayUpdate.ongoing = false;
 		}
-		// console.log(`UpdatableHTMLElement(${this.constructor.name}).updateTimeout`, "u.repeat", u.repeat);
-		if (u.repeat) {
-			u.repeat = false;
-			this.requestUpdate();
+		if (this.#displayUpdate.repeat) {
+			this.#displayUpdate.repeat = false;
+			this.requestDisplay(0);
 		}
 	}
 
 	async updateDisplay() {
-		// console.log(`UpdatableHTMLElement(${this.constructor.name}).updateDisplay`);
-		if (this.janillas.templates)
+		// console.log(`WebComponent(${this.constructor.name}).updateDisplay`);
+		if (this.#templating)
 			this.appendChild(this.interpolateDom({
 				$template: "",
 				...this.state
@@ -119,9 +113,9 @@ export class UpdatableHTMLElement extends HTMLElement {
 	}
 
 	interpolateDom(input) {
-		// console.log("UpdatableHTMLElement(${this.constructor.name}).interpolateDom");
+		// console.log("WebComponent(${this.constructor.name}).interpolateDom");
 		const getInterpolate = (template, index) => {
-			const x = this.janillas.templates[template];
+			const x = this.#templating[template];
 			if (!x)
 				throw new Error(`Template "${template}" not found (${this.constructor.name})`);
 			for (let i = x.functions.length; i <= index; i++)
@@ -140,43 +134,44 @@ export class UpdatableHTMLElement extends HTMLElement {
 				const v2 = interpolate(v);
 				return [k, v2];
 			}));
-			const t = x.$template;
-			//if (t === "object")
-			//debugger;
-			indexes[t] ??= 0;
-			const i = getInterpolate(t, indexes[t]++);
-			return i(y);
+			indexes[x.$template] ??= 0;
+			return getInterpolate(x.$template, indexes[x.$template]++)(y);
 		};
-		return interpolate(input);
+		const node = interpolate(input);
+		for (const [k, v] of Object.entries(this.#templating)) {
+			const length = indexes[k] ?? 0;
+			if (v.functions.length > length)
+				v.functions.length = length;
+		}
+		return node;
 	}
 }
 
 const documentFragments = {};
 
 const getDocumentFragment = async name => {
-	const r = `/${name}.html`;
-	documentFragments[name] ??= fetch(r).then(x => {
+	documentFragments[name] ??= fetch(`/${name}.html`).then(x => {
 		if (!x.ok)
-			throw new Error(`Failed to fetch ${r}: ${x.status} ${x.statusText}`);
+			throw new Error(`Failed to fetch /${name}.html: ${x.status} ${x.statusText}`);
 		return x.text();
 	}).then(x => {
-		const t = document.createElement("template");
-		t.innerHTML = x;
-		return t.content;
+		const template = document.createElement("template");
+		template.innerHTML = x;
+		return template.content;
 	});
 	return await documentFragments[name];
 };
 
 const evaluate = (expression, context) => {
-	let o = context;
+	let value = context;
 	if (expression)
-		for (const k of expression.split(".")) {
-			if (o == null)
+		for (const subexpr of expression.split(".")) {
+			if (value == null)
 				break;
-			const i = k.endsWith("]") ? k.indexOf("[") : -1;
-			o = i === -1 ? o[k] : o[k.substring(0, i)]?.[parseInt(k.substring(i + 1, k.length - 1))];
+			const index = subexpr.endsWith("]") ? subexpr.indexOf("[") : -1;
+			value = index === -1 ? value[subexpr] : value[subexpr.substring(0, index)]?.[parseInt(subexpr.substring(index + 1, subexpr.length - 1))];
 		}
-	return o;
+	return value;
 };
 
 const findNode = (node, indexes, attribute) => {
@@ -193,7 +188,6 @@ const compileNode = rootNode => {
 			const text = node.nodeValue;
 			if (text.includes("${") && text.includes("}")) {
 				const pathCopy = [...path];
-				//node.nodeValue = "";
 				const isTextAreaChild = node.parentElement instanceof HTMLTextAreaElement;
 				interpolatorBuilders.push(rootNodeCopy => {
 					const nodeCopy = findNode(rootNodeCopy, pathCopy);
@@ -213,12 +207,10 @@ const compileNode = rootNode => {
 			if (text.startsWith("${") && text.indexOf("}") === text.length - 1) {
 				const pathCopy = [...path];
 				const expression = text.substring(2, text.length - 1);
-				//node.nodeValue = "";
 				interpolatorBuilders.push(rootNodeCopy => {
 					const nodeCopy = findNode(rootNodeCopy, pathCopy);
 					return context => {
-						nodeCopy.janillas ??= {};
-						const nodes1 = nodeCopy.janillas.insertedNodes ?? [];
+						const nodes1 = nodeCopy.insertedNodes ?? [];
 						let referenceNode;
 						for (let i = nodes1.length - 1; i >= 0; i--)
 							if (nodes1[i].parentNode === nodeCopy.parentNode) {
@@ -230,15 +222,14 @@ const compileNode = rootNode => {
 						const values = Array.isArray(value) ? value : value != null ? [value] : [];
 						const nodes2 = values.flatMap(v => {
 							if (v instanceof DocumentFragment) {
-								v.janillas ??= {};
-								const nodes0 = (v.janillas.originalChildNodes ??= [...v.childNodes]);
+								const nodes0 = (v.originalChildNodes ??= [...v.childNodes]);
 								if (!v.firstChild && nodes0.length) {
 									for (let ps = nodes0[0].previousSibling; ps; ps = ps.previousSibling)
 										if (ps instanceof Comment) {
-											const nn1 = ps.janillas.insertedNodes;
+											const nn1 = ps.insertedNodes;
 											const nn2 = nn1.filter(x => !nodes0.includes(x));
 											if (nn2.length < nn1.length)
-												ps.janillas.insertedNodes = nn2;
+												ps.insertedNodes = nn2;
 										}
 									return nodes0;
 								}
@@ -260,7 +251,7 @@ const compileNode = rootNode => {
 								nodeCopy.parentNode.insertBefore(n, referenceNode);
 							referenceNode = n;
 						}
-						nodeCopy.janillas.insertedNodes = nodes2;
+						nodeCopy.insertedNodes = nodes2;
 					};
 				});
 			}
@@ -270,7 +261,6 @@ const compileNode = rootNode => {
 				const text = attribute.value;
 				if (text.includes("${") && text.includes("}")) {
 					const pathCopy = [...path, i];
-					//a.value = "";
 					const isExpression = text.startsWith("${") && text.indexOf("}") === text.length - 1;
 					interpolatorBuilders.push(rootNodeCopy => {
 						const attributeCopy = findNode(rootNodeCopy, pathCopy, true);
@@ -281,7 +271,7 @@ const compileNode = rootNode => {
 								value = evaluate(expression, context);
 								return value ?? "";
 							});
-							// console.log("v", v, "v2", v2, "z", z, "s", s);
+							// console.log("text", text, "isExpression", isExpression, "value", value, "stringValue", stringValue);
 							if (!isExpression)
 								;
 							else if (value == null || value === false)
@@ -292,13 +282,25 @@ const compileNode = rootNode => {
 								attributeCopy.value = value === true ? "" : stringValue;
 							switch (attributeCopy.name) {
 								case "checked":
-									if (element instanceof HTMLInputElement && value !== element.checked)
-										element.checked = value;
+									if (element instanceof HTMLInputElement) {
+										if (element.checked !== value)
+											element.checked = value;
+									}
+									break;
+								case "selected":
+									if (element instanceof HTMLOptionElement && value) {
+										const pe = element.parentElement;
+										if (pe instanceof HTMLSelectElement && pe.value !== element.value)
+											pe.value = element.value;
+									}
 									break;
 								case "value":
-									if ((element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement)
-										&& attributeCopy.value !== element.value)
-										element.value = attributeCopy.value;
+									if (element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement) {
+										if (!attributeCopy.ownerElement)
+											delete element.value;
+										else if (element.value !== attributeCopy.value)
+											element.value = attributeCopy.value;
+									}
 									break;
 							}
 						};
@@ -328,7 +330,7 @@ const compileNode = rootNode => {
 	return () => {
 		const rootNodeCopy = rootNode.cloneNode(true);
 		if (rootNodeCopy instanceof DocumentFragment)
-			(rootNodeCopy.janillas = {}).originalChildNodes = [...rootNodeCopy.childNodes];
+			rootNodeCopy.originalChildNodes = [...rootNodeCopy.childNodes];
 		const interpolators = interpolatorBuilders.map(build => build(rootNodeCopy));
 		return context => {
 			interpolators.forEach(interpolate => interpolate(context));

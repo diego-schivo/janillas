@@ -1,0 +1,12 @@
+<footer class="bottombar" style="${style}">
+    <div class="todo-status">${todoStatusText}</div>
+    <ul class="filter-list">
+        <!--${filterItems}-->
+    </ul>
+    <template id="filter-item">
+        <li class="filter-item">
+            <a id="${id}" class="${class}" href="${href}">${text}</a>
+        </li>
+    </template>
+    <button id="clear-completed" class="clear-completed-button">Clear completed</button>
+</footer>
